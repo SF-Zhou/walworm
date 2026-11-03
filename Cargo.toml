@@ -1,0 +1,44 @@
+[package]
+name = "walworm"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.89"
+description = "Single-file write-ahead log (WAL) with one writer and many readers: atomic batches, CRC32C verification, optional buffered writes and Direct I/O."
+license = "MIT OR Apache-2.0"
+keywords = ["wal", "write-ahead-log", "direct-io", "crc32c", "storage"]
+categories = ["data-structures", "filesystem", "database"]
+repository = "https://github.com/SF-Zhou/walworm"
+documentation = "https://docs.rs/walworm"
+readme = "README.md"
+exclude = [".github/", "docs/"]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[dependencies]
+crc-fast = "1.6"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+libc = "0.2"
+
+[dev-dependencies]
+tempfile = "3"
+
+[[bench]]
+name = "throughput"
+harness = false
+
+[lints.rust]
+missing_docs = "warn"
+unsafe_op_in_unsafe_fn = "warn"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+undocumented_unsafe_blocks = "warn"
+# All integer casts are guarded by explicit range checks; the crate targets
+# 64-bit platforms where `usize` casts cannot truncate.
+cast_possible_truncation = "allow"
+cast_possible_wrap = "allow"
+cast_sign_loss = "allow"

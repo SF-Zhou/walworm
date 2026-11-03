@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  test:
+    name: Test (${{ matrix.toolchain }})
+    runs-on: ubuntu-latest
+    env:
+      # These Linux runners must execute the Direct I/O tests, never skip them.
+      WALWORM_REQUIRE_DIRECT_IO: "1"
+    strategy:
+      matrix:
+        toolchain: [stable, 1.89.0]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+      - uses: Swatinem/rust-cache@v2
+      - name: Tests (debug)
+        run: cargo test --all-targets
+      - name: Tests (release)
+        run: cargo test --all-targets --release
+      # `cargo test --all-targets` does NOT run doctests; run them explicitly.
+      - name: Doctests
+        run: cargo test --doc
+
+  lints:
+    name: Lints
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+      - name: Docs
+        env:
+          RUSTDOCFLAGS: "-D warnings"
+        run: cargo doc --no-deps --document-private-items
+
+  miri:
+    name: Miri
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly
+          components: miri
+      - uses: Swatinem/rust-cache@v2
+      - name: Miri (lib tests)
+        env:
+          MIRIFLAGS: "-Zmiri-disable-isolation"
+        run: cargo +nightly miri test --lib
+
+  cross-platform:
+    name: Cross-platform (x86_64-pc-windows-gnu)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          targets: x86_64-pc-windows-gnu
+      - uses: Swatinem/rust-cache@v2
+      # Buffered I/O must build on Windows; only Direct I/O (O_DIRECT) is
+      # Linux-only. `cargo check` does not link, so no mingw toolchain is
+      # needed for the Windows target.
+      - name: Check (Windows target)
+        run: cargo check --all-targets --target x86_64-pc-windows-gnu
+      - name: Build benchmarks (release)
+        run: cargo build --benches --release
